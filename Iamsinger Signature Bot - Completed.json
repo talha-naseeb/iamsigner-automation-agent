@@ -1,0 +1,983 @@
+{
+  "name": "Iamsinger Signature Bot - Completed",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// This is for regular chat messages (NOT signing links or signing requests)\nconst data =$input.first().json.output ;\n\nreturn { \n  json: { \n    output: data,\n    timestamp: new Date().toISOString()\n  } \n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        -400
+      ],
+      "id": "971771d8-a358-48f6-90fc-45b05317f4d5",
+      "name": "format resposne from ai"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "1",
+              "leftValue": "={{ $json.isSigningRequest }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f74cbc00-d535-4e6e-95cf-96ab1bea9a31",
+      "name": "IF Signing Request?2",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        -2432,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "databaseName": "iamsigner_db",
+        "contextWindowLength": 500
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryMongoDbChat",
+      "typeVersion": 1,
+      "position": [
+        -2880,
+        32
+      ],
+      "id": "a4507dcf-e3a2-4c28-8606-bf6a94d8b9e7",
+      "name": "MongoDB Chat Memory",
+      "credentials": {
+        "mongoDb": {
+          "id": "CAtFt8R9rTBO8pb3",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const apiResponse =$('Get User Signature1').first().json.response.mySignatureBase64String;\nconst context = $('Validate Retrieved Context1').first().json;\n\nconst signatureBase64 = apiResponse;\n\nconst requestBodies = [];\n\nfor (const control of context.controlsToSign || []) {\n  requestBodies.push({\n    ControlLocationID: control.controlLocationID,\n    MasterDocID: context.masterDocID,\n    RegisterSignID: context.registerSignID,\n    SignatoriesID: context.signatoryID,\n    ModifiedBy: context.signerEmail,\n    IsSignature: true,\n    IsInitial: false,\n    IsStamp: false,\n    IsImage: false,\n    IsRequired: true,\n    IsRadioButton: false,\n    IsCheckBox: false,\n    IsDigitalSignature: false,\n    Signature: signatureBase64,\n    SignatureExtention: \".png\",\n    IsSignatureSaved: true\n  });\n}\n\nreturn {\n  json: {\n    ...context,\n    signatureBase64,\n    signaturePayload: requestBodies\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1136,
+        -192
+      ],
+      "id": "e074e595-afb9-4807-9b79-956138f4b624",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const context = $('Code in JavaScript1').item.json;\nconst signatureResult = $('Submit Signature1').item.json;\n\nconst response = `✅ **Signature Applied Successfully!**\\n\\n📄 **Document:** ${context.docName}\\n✍️ **Signed by:** ${context.signerName}\\n🎯 **Signature fields completed:** ${context.controlsToSign?.length || 1}\\n⏰ **Timestamp:** ${new Date().toLocaleString()}\\n\\n---\\n✨ Your signature has been successfully applied to the document. The signing process is complete!`;\n\nreturn {\n  json: {\n    output: response,\n    success: true,\n    timestamp: new Date().toISOString(),\n    signatureResult: signatureResult\n  }\n};"
+      },
+      "id": "15f6d1aa-c804-4f48-88d2-1e16d088b7b3",
+      "name": "Format Signing Response1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-demo.iamsigner.com/v1.0/api/CreateSignActivityVerification",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "signAuth",
+              "value": "={{ $('Find Signing Context1').item.json.signAuth }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  Status: \"Completed Successfully\",\n  Message: `Signature process has been completed by chat agent assistant!`\n}) }}\n",
+        "options": {}
+      },
+      "id": "9605bd28-1690-4b21-bd4d-389a5e0f4e44",
+      "name": "Update Activity Complete1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1232,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "https://api-demo.iamsigner.com/v1.0/api/UpdateControlLocationSignature",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "signAuth",
+              "value": "={{ $json.signAuth }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.signaturePayload }}",
+        "options": {}
+      },
+      "id": "1b98616c-af2e-4b87-b70c-170d0e8c44a2",
+      "name": "Submit Signature1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -928,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-demo.iamsigner.com/v1.0/api/CreateSignActivityVerification",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "signAuth",
+              "value": "={{ $('Get Signature Preference1').item.json.signAuth }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  Status: \"InProgress\",\n  Message: `Signature process initiated via chat assistant agent`\n}) }}\n",
+        "options": {}
+      },
+      "id": "eb37a7e3-292c-4e70-a034-d38890b903c6",
+      "name": "Create Activity Log1",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -1376,
+        -192
+      ],
+      "typeVersion": 4.3
+    },
+    {
+      "parameters": {
+        "url": "https://api-demo.iamsigner.com/v1.0/api/GetSignatureStampVerification",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "signAuth",
+              "value": "={{ $json.signAuth }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1a408c8-45ed-42e1-b770-fac80d8cb5eb",
+      "name": "Get User Signature1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1568,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const chatMessage = $('Route Message Type1').item.json.message;\nconst context = $input.item.json;\n\n// Extract signature text from message or use signer name\nlet signatureText = context.signerName;\n\n// Check if user provided custom signature text\n// Examples: \"sign it with John Doe\", \"sign with my name\"\nconst withPattern = /\\bwith\\s+(.+)$/i;\nconst match = chatMessage.match(withPattern);\nif (match && match[1]) {\n  signatureText = match[1].trim();\n}\n\nconsole.log('Signature text:', signatureText);\n\nreturn {\n  json: {\n    ...context,\n    signatureText: signatureText\n  }\n};"
+      },
+      "id": "043a9894-9380-482f-a544-f801657026bc",
+      "name": "Get Signature Preference1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1776,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const context = $input.item.json;\n\n// Validate required fields\nif (!context || !context.signAuth) {\n  throw new Error('❌ No signing context found. Please provide a signing link first by sharing the document link.');\n}\n\nif (!context.url || !context.docName) {\n  throw new Error('❌ Signing context incomplete. Please verify the signing link again.');\n}\n\nif (!context.verificationComplete) {\n  throw new Error('❌ Document verification not complete. Please share the signing link first.');\n}\n\nif (context.signingComplete) {\n  throw new Error('✅ This document has already been signed!');\n}\n\nconsole.log('Context validated successfully for:', context.docName);\n\nreturn {\n  json: {\n    signAuth: context.signAuth,\n    url: context.url,\n    docName: context.docName,\n    signerName: context.signerName,\n    signerEmail: context.signerEmail,\n    sessionId: context.sessionId,\n    registerSignID: context.registerSignID,\n    masterDocID: context.masterDocID,\n    signatoryID: context.signatoryID,\n    signatureColor: context.signatureColor,\n    controlsToSign: context.controlsToSign || [],\n    totalPages: context.totalPages || 0\n  }\n};"
+      },
+      "id": "c08c51d2-f566-4716-85f8-cd0a0bf1cfea",
+      "name": "Validate Retrieved Context1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1984,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "collection": "n8n_chat_histories",
+        "options": {}
+      },
+      "id": "30213b3e-6e01-473b-bbc3-beb7311a60c2",
+      "name": "Find Signing Context1",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1,
+      "position": [
+        -2192,
+        -192
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "CAtFt8R9rTBO8pb3",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "findOneAndUpdate",
+        "collection": "n8n_chat_histories",
+        "updateKey": "sessionId",
+        "fields": "sessionId,signAuth,url,docName,signerName,signerEmail,signingTimestamp,registerSignID,masterDocID,signatoryID,signatureColor,controlsToSign,totalPages,verificationComplete,signingComplete",
+        "upsert": true,
+        "options": {}
+      },
+      "id": "6be4a3c1-70a0-4ee5-aeda-76f3c70d91f9",
+      "name": "Save to MongoDB1",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1,
+      "position": [
+        -352,
+        -592
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "CAtFt8R9rTBO8pb3",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.item.json;\nconst sessionId = $('When chat message received').item.json.sessionId;\n\n// Store complete context for signing\nconst data = {\n  sessionId: sessionId,\n  signAuth: input.signAuth || null,\n  url: input.docPath || null,\n  docName: input.docName || null,\n  signerName: input.signatoryName || null,\n  signerEmail: input.signatoryEmail || null,\n  signingTimestamp: new Date().toISOString(),\n  \n  // Complete signing context\n  registerSignID: input.registerSignID || null,\n  masterDocID: input.masterDocID || null,\n  signatoryID: input.signatoryID || null,\n  signatureColor: input.signatureColor || null,\n  \n  // Store control locations for signing\n  controlsToSign: input.controlsToSign || [],\n  totalPages: input.totalPages || 0,\n  \n  // Status tracking\n  verificationComplete: true,\n  signingComplete: false\n};\n\nreturn { json: data };"
+      },
+      "id": "d8d45f00-98f6-4a32-a7cd-d7faaa76f511",
+      "name": "Prepare DB Data1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -576,
+        -592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// This is for signing links - prepare for verification\nconst data = $('Process AI Response1').item.json;\nreturn { \n  json: { \n    output: `${data.aiResponse}\\n\\n🔍 **I see you've provided a signing link!** Let me verify this document and provide you with a summary...`,\n    originalMessage: data.originalMessage,\n    isSigningLink: true,\n    timestamp: new Date().toISOString()\n  } \n};"
+      },
+      "id": "97a79c37-4488-4e63-b223-656713331023",
+      "name": "Prepare Verification1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2192,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "1",
+              "leftValue": "={{ $json.isSigningLink }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "equal",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "45acd1ed-653c-4cd5-9eb5-301e28514318",
+              "leftValue": "={{ $json.isSigningLink }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "a327d980-f192-4ca8-8fe8-90b89265fee5",
+      "name": "IF Signing Link?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        -2432,
+        -384
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -288,
+        -144
+      ],
+      "id": "97bd5525-3d34-4bc5-86bf-ed0cdd483e89",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "muEYnjTB5ZYCmtYm",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this document signing request and provide a brief summary:\\n\\n📄 **Document:** {{ $json.docName }}\\n📊 **Total Pages:** {{ $json.totalPages }}\\n✍️ **Signer:** {{ $json.signatoryName }} ({{ $json.signatoryEmail }})\\n🎯 **Signature Fields:** {{ $json.controlsToSign.length }}\\n\\nPlease provide:\\n1. A brief summary of what this document appears to be based on its name\\n2. Key information about the signing requirements\\n3. Any notable details about the document structure\\n\\nKeep it concise and professional.",
+        "options": {}
+      },
+      "id": "66c4f09c-beb8-47f5-9401-95104b5ac23f",
+      "name": "AI Document Summary1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        -288,
+        -400
+      ],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "jsCode": "const controlsData = $input.item.json.response;\nconst prev = $('Store Pages Data1').item.json;\n\nif (!controlsData || !Array.isArray(controlsData)) {\n  throw new Error('Controls data missing');\n}\n\nconst pendingSigner = prev.registerData.signatories?.find(s => s.signStatus === 'Pending');\nif (!pendingSigner) {\n  throw new Error('No pending signer found');\n}\n\nconst pendingControls = controlsData.filter(c => \n  c.email === pendingSigner.email && \n  c.controlStatus === 'Pending' &&\n  c.isSignature\n);\n\nif (!pendingControls.length) {\n  throw new Error('No pending signature controls found');\n}\n\nconst documentContext = { \n  signAuth: prev.signAuth, \n  registerSignID: prev.registerData.registerSignID, \n  masterDocID: prev.registerData.primaryDocs[0].masterDocID, \n  docName: prev.registerData.primaryDocs[0].docName, \n  docPath: prev.registerData.primaryDocs[0].docPath, \n  totalPages: prev.pages.length, \n  signatoryID: pendingSigner.signatoriesID, \n  signatoryName: pendingSigner.name, \n  signatoryEmail: pendingSigner.email, \n  signatureColor: pendingSigner.signatureColor, \n  controlsToSign: pendingControls.map(c => ({\n    controlLocationID: c.controlLocationID, \n    pageNumber: c.pagesOrder, \n    pageName: c.pagesName, \n    positionX: c.controlLocationX, \n    positionY: c.controlLocationY, \n    width: c.width, \n    height: c.height \n  })), \n  pages: prev.pages.map(p => ({\n    pageID: p.masterDocPagesID, \n    pageName: p.pagesName, \n    pageOrder: p.pagesOrder, \n    pagePath: p.pagesPath \n  })), \n  initiatorEmail: prev.registerData.createdBy, \n  initiatorName: prev.registerData.createdByName \n};\n\nconsole.log('Document context built successfully');\nreturn { json: documentContext };"
+      },
+      "id": "c8c32a79-d5d8-40a9-bc04-e5303cd074f5",
+      "name": "Build Complete Context1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -736,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api-demo.iamsigner.com/v1.0/api/GetControlLocationVerification?MasterDocID={{ $json.masterDocID }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "signAuth",
+              "value": "={{ $json.signAuth }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3c3a2001-f389-4984-b83e-cf796199c38a",
+      "name": "Get Control Locations1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -944,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const pagesData = $input.item.json.response;\nconst prev = $('Store Register Data1').item.json;\n\nif (!pagesData || !Array.isArray(pagesData)) {\n  throw new Error('Pages data missing or invalid');\n}\n\nconsole.log('Pages data retrieved:', pagesData.length, 'pages');\nreturn { \n  json: { \n    ...prev, \n    pages: pagesData \n  } \n};"
+      },
+      "id": "7e6a35d4-1fcb-4f34-8066-45302ebf3b4d",
+      "name": "Store Pages Data1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1152,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api-demo.iamsigner.com/v1.0/api/GetMasterDocPagesVerification?MasterDocID={{ $json.masterDocID }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "signAuth",
+              "value": "={{ $json.signAuth }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cfb473dd-eee8-43f1-b7cd-5a0fb487d097",
+      "name": "Get Document Pages1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1360,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const apiResponse = $input.item.json;\nconst signAuth = $('Extract SignAuth from URL1').item.json.signedDocKey;\nconst registerData = apiResponse.response || apiResponse;\n\nif (!registerData || !registerData.registerSignID || !registerData.primaryDocs?.length) {\n  throw new Error('Register data missing or incomplete');\n}\n\nconsole.log('Register data retrieved successfully');\nreturn { \n  json: { \n    signAuth, \n    registerData, \n    masterDocID: registerData.primaryDocs[0].masterDocID \n  } \n};"
+      },
+      "id": "55c2daa6-3894-40eb-b15b-ea529cb0fb7e",
+      "name": "Store Register Data1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1568,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api-demo.iamsigner.com/v1.0/api/GetRegisterSignDataVerification",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "signAuth",
+              "value": "={{ $json.signedDocKey }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5086311a-c286-45b1-abd7-20c94108a200",
+      "name": "Get Register Sign Data1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1776,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract signedDocKey from the URL provided in chat\nconst decision = $('Prepare Verification1').item.json;\n\nconst chatMessage = decision.originalMessage;\nconsole.log('Processing signing link:', chatMessage);\n\nconst urlPattern = /\\/SignNow\\/id\\/([^\\s\\/]+)/;\nconst match = chatMessage.match(urlPattern);\n\nif (!match || !match[1]) {\n  console.log('Invalid URL format');\n  throw new Error('Invalid URL format. Please provide a valid signing link.');\n}\n\nconst decodedKey = decodeURIComponent(match[1]);\nconsole.log('Extracted signedDocKey:', decodedKey);\n\nreturn { \n  json: { \n    signedDocKey: decodedKey, \n    originalUrl: chatMessage, \n    timestamp: new Date().toISOString(),\n    verificationStarted: true\n  } \n};"
+      },
+      "id": "99db0610-27ca-4497-bb4d-aae6e11feadf",
+      "name": "Extract SignAuth from URL1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1984,
+        -400
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "883e16ca-8a91-48d4-8270-a6a013344c31",
+      "name": "Initial Chat Response1",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        -3152,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// This is for regular chat messages (NOT signing links or signing requests)\nconst data = $input.item.json;\nreturn { \n  json: { \n    output: data.aiResponse,\n    timestamp: new Date().toISOString()\n  } \n};"
+      },
+      "id": "1f2e14c0-bfba-4575-8785-91bd51d55d43",
+      "name": "Format Regular Response1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2496,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const messageData = $('Route Message Type1').item.json;\nconst aiResponse = $input.item.json.output || 'Thank you for your message about IAmSigner.';\n\nreturn { \n  json: { \n    aiResponse: aiResponse,\n    isSigningLink: messageData.isSigningLink,\n    isSigningRequest: messageData.isSigningRequest,\n    originalMessage: messageData.message,\n    timestamp: new Date().toISOString()\n  } \n};"
+      },
+      "id": "dd41db9d-dd4f-482c-b405-fd57479d9ff9",
+      "name": "Process AI Response1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2640,
+        -384
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "99e6a06f-25a5-42cf-9488-d3acc4942fa9",
+      "name": "Gemini Model1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -2976,
+        -128
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "muEYnjTB5ZYCmtYm",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "==You are an IAmSigner E-Signature Assistant. IAmSigner is a secure electronic signature platform for document management and signing workflows.\\n\\n**Key Capabilities I Can Help With:**\\n- Document signing (self-sign, bulk send, templates)\\n- Document management (folders, status tracking)\\n- Team collaboration & delegation\\n- Integrations (APIs, webhooks)\\n- Account settings & profile management\\n\\n**Quick Answers For:**\\n- How to upload/sign documents\\n- Bulk sending to multiple recipients\\n- Creating and using templates\\n- Managing teams and permissions\\n- Document status explanations\\n- API integration setup\\n\\n**Current Query:** \\\"{{ $json.message }}\\\"\\n\\n**Response Style:**\\n- Keep answers brief but helpful\\n- Focus on practical steps\\n- Mention if signing link verification is needed\\n- Offer more details if user asks follow-up questions",
+        "options": {}
+      },
+      "id": "d885447a-47fe-409f-a3e0-8af8217fc0de",
+      "name": "IAmSigner Chat Agent1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.3,
+      "position": [
+        -2976,
+        -384
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const chatMessage = $input.item.json.chatInput || $input.item.json.input || '';\n\n// Check if message contains a signing link\nconst urlPattern = /\\/SignNow\\/id\\/([^\\s\\/]+)/;\nconst isSigningLink = urlPattern.test(chatMessage);\n\n// Check for signing request keywords\nconst signingKeywords = ['sign it', 'signit', 'sign this', 'apply signature', 'sign document', 'sign now', 'complete signing', 'please sign'];\nconst isSigningRequest = signingKeywords.some(keyword => \n  chatMessage.toLowerCase().includes(keyword)\n);\n\n// Check for questions about IAmSigner\nconst iamSignerKeywords = ['iamsigner', 'signer', 'document', 'sign', 'esign', 'electronic signature', 'verify', 'how to', 'what is', 'help', 'feature', 'api'];\nconst isQuestion = iamSignerKeywords.some(keyword => \n  chatMessage.toLowerCase().includes(keyword)\n);\n\n// Check if it's a greeting\nconst greetings = ['hello', 'hi', 'hey', 'greetings'];\nconst isGreeting = greetings.some(greet => \n  chatMessage.toLowerCase().includes(greet)\n);\n\nreturn { \n  json: { \n    message: chatMessage,\n    isSigningLink: isSigningLink,\n    isSigningRequest: isSigningRequest,\n    isQuestion: isQuestion,\n    isGreeting: isGreeting,\n    requiresResponse: isSigningLink || isQuestion || isGreeting || isSigningRequest,\n    timestamp: new Date().toISOString()\n  } \n};"
+      },
+      "id": "5c23f442-c65b-4a05-82ab-eed772bf780d",
+      "name": "Route Message Type1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3168,
+        -384
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "5a8bc1d9-213e-4f77-91f9-dae361276267",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -3376,
+        -384
+      ],
+      "webhookId": "iamsigner-chat-trigger"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "collection": "n8n_chat_histories"
+      },
+      "id": "ae58d5a3-f27f-4eb7-9de2-047ee4558086",
+      "name": "Delete the data",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1,
+      "position": [
+        -656,
+        -192
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "CAtFt8R9rTBO8pb3",
+          "name": "MongoDB account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "IF Signing Request?2": {
+      "main": [
+        [
+          {
+            "node": "Find Signing Context1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Regular Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Submit Signature1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Activity Complete1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Submit Signature1": {
+      "main": [
+        [
+          {
+            "node": "Delete the data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Format Signing Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Activity Log1": {
+      "main": [
+        [
+          {
+            "node": "Update Activity Complete1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User Signature1": {
+      "main": [
+        [
+          {
+            "node": "Create Activity Log1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Signature Preference1": {
+      "main": [
+        [
+          {
+            "node": "Get User Signature1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Retrieved Context1": {
+      "main": [
+        [
+          {
+            "node": "Get Signature Preference1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Signing Context1": {
+      "main": [
+        [
+          {
+            "node": "Validate Retrieved Context1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare DB Data1": {
+      "main": [
+        [
+          {
+            "node": "Save to MongoDB1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Verification1": {
+      "main": [
+        [
+          {
+            "node": "Extract SignAuth from URL1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Signing Link?1": {
+      "main": [
+        [
+          {
+            "node": "Prepare Verification1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Signing Request?2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Document Summary1": {
+      "main": [
+        [
+          {
+            "node": "format resposne from ai",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Document Summary1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Complete Context1": {
+      "main": [
+        [
+          {
+            "node": "Prepare DB Data1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AI Document Summary1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Control Locations1": {
+      "main": [
+        [
+          {
+            "node": "Build Complete Context1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Pages Data1": {
+      "main": [
+        [
+          {
+            "node": "Get Control Locations1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Document Pages1": {
+      "main": [
+        [
+          {
+            "node": "Store Pages Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Register Data1": {
+      "main": [
+        [
+          {
+            "node": "Get Document Pages1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Register Sign Data1": {
+      "main": [
+        [
+          {
+            "node": "Store Register Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract SignAuth from URL1": {
+      "main": [
+        [
+          {
+            "node": "Get Register Sign Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process AI Response1": {
+      "main": [
+        [
+          {
+            "node": "IF Signing Link?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "IAmSigner Chat Agent1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "IAmSigner Chat Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IAmSigner Chat Agent1": {
+      "main": [
+        [
+          {
+            "node": "Process AI Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Message Type1": {
+      "main": [
+        [
+          {
+            "node": "IAmSigner Chat Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Route Message Type1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Signing Response1": {
+      "main": [
+        []
+      ]
+    },
+    "Delete the data": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "7860b841-2c22-4f58-9113-623bf783653c",
+  "meta": {
+    "instanceId": "1f3caa2acdb96364fa92196d2d0d7e9b4abf252f790f9b5b20603c776b614989"
+  },
+  "id": "KReQrHcGJZTyah8X",
+  "tags": []
+}
